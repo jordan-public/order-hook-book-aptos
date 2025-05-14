@@ -1,4 +1,5 @@
 module clohb::order_book {
+    use std::debug;
     use std::signer;
     use std::option::Option;
     use aptos_std::big_ordered_map;
@@ -20,8 +21,8 @@ module clohb::order_book {
     fun init_module(account: &signer) { // Instead of init()
         assert!(!exists<OrderBook>(signer::address_of(account)), 1);
         move_to(account, OrderBook {
-            bids: big_ordered_map::new(),
-            offers: big_ordered_map::new(),
+            bids: big_ordered_map::new_with_type_size_hints(8, 8, 64, 128),
+            offers: big_ordered_map::new_with_type_size_hints(8, 8, 64, 128),
         });
     }
 
@@ -132,4 +133,31 @@ module clohb::order_book {
             _ => abort 3,
         }
     }
+
+    #[test(account = @0x1)]
+    public entry fun test_insert_remove_bid(account: signer) acquires OrderBook {
+        let addr = signer::address_of(&account);
+
+        init_module(&account);
+        insert_bid(&account, 100, 10);
+        remove_bid(&account, 100);
+    }
+
+    #[persistent]
+    fun my_hook(price: u64): bool {
+        // Hook logic here
+        debug::print(&price);
+
+        true
+    }
+
+    #[test(account = @0x1)]
+    public entry fun test_minimal_hook(account: signer) acquires OrderBook {
+        let addr = signer::address_of(&account);
+
+        init_module(&account);
+        insert_bid_hook(&account, my_hook, 100, 5);
+        take_best_bid(&account);
+    }
+
 }
