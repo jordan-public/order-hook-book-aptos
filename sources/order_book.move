@@ -7,7 +7,7 @@ module clohb::order_book {
     enum Entry has copy, drop, store {
         Bid { owner: address, amount: u64, price : u64 },
         Offer { owner: address, amount: u64, price : u64 },
-        Hook { owner: address, price: u64, reward: u64, callback: |u64| bool },
+        Hook { owner: address, price: u64, reward: u64, callback: |u64| bool has copy+drop+store },
     }
 
     /// The order book resource
@@ -25,42 +25,40 @@ module clohb::order_book {
         });
     }
 
-    /// Insert a bid or hook into the bids map
-    public fun insert_bid(account: &signer, entry: Entry) acquires OrderBook {
+    /// Insert a hook into the bids or offers map
+    // Should be "entry" function but it does not work in the current version - waiting for resolution!!!
+    public fun insert_bid_hook(account: &signer, callback: |u64| bool has copy+drop+store, price: u64, reward: u64) acquires OrderBook {
         let addr = signer::address_of(account);
         let order_book_owner = @clohb; // The address of the module
-        match (entry) {
-            Entry::Bid { owner, amount, price } => {
-                assert!(owner == addr, 2);
-                let book = borrow_global_mut<OrderBook>(order_book_owner);
-                book.bids.add(price, entry);
-            },
-            Entry::Hook { owner, price, reward, callback } => {
-                assert!(owner == addr, 2);
-                let book = borrow_global_mut<OrderBook>(order_book_owner);
-                book.bids.add(price, entry);
-            },
-            _ => abort 3,
-        }
+        let book = borrow_global_mut<OrderBook>(order_book_owner);
+        let entry = Entry::Hook { owner: addr, price, reward, callback };
+        book.bids.add(price, entry);
+    }
+
+    /// Insert a hook into the bids or offers map
+    // Should be "entry" function but it does not work in the current version - waiting for resolution!!!
+    public fun insert_offer_hook(account: &signer, callback: |u64| bool has copy+drop+store, price: u64, reward: u64) acquires OrderBook {
+        let addr = signer::address_of(account);
+        let order_book_owner = @clohb; // The address of the module
+        let book = borrow_global_mut<OrderBook>(order_book_owner);
+        let entry = Entry::Hook { owner: addr, price, reward, callback };
+        book.offers.add(price, entry);
+    }
+
+    /// Insert a bid or hook into the bids map
+    public entry fun insert_bid(account: &signer, price: u64, amount: u64) acquires OrderBook {
+        let addr = signer::address_of(account);
+        let order_book_owner = @clohb; // The address of the module
+        let book = borrow_global_mut<OrderBook>(order_book_owner);
+        book.bids.add(price, Entry::Bid { owner: addr, amount, price });
     }
 
     /// Insert an offer or hook into the offers map
-    public fun insert_offer(account: &signer, entry: Entry) acquires OrderBook {
+    public entry fun insert_offer(account: &signer, price: u64, amount: u64) acquires OrderBook {
         let addr = signer::address_of(account);
         let order_book_owner = @clohb; // The address of the module
-        match (entry) {
-            Entry::Offer { owner, amount, price } => {
-                assert!(owner == addr, 2);
-                let book = borrow_global_mut<OrderBook>(order_book_owner);
-                book.offers.add(price, entry);
-            },
-            Entry::Hook { owner, price, reward, callback } => {
-                assert!(owner == addr, 2);
-                let book = borrow_global_mut<OrderBook>(order_book_owner);
-                book.offers.add(price, entry);
-            },
-            _ => abort 3,
-        };
+        let book = borrow_global_mut<OrderBook>(order_book_owner);
+        book.offers.add(price, Entry::Offer { owner: addr, amount, price });
     }
 
     /// Remove a bid or hook from the bids map (only by owner)
