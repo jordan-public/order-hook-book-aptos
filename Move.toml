@@ -1,0 +1,15 @@
+[package]
+name = "clohb"
+version = "1.0.0"
+authors = ["Jordan Stojanovski"]
+
+[addresses]
+
+[dev-addresses]
+
+[dependencies.AptosFramework]
+git = "https://github.com/aptos-labs/aptos-framework.git"
+rev = "main"
+subdir = "aptos-framework"
+
+[dev-dependencies]
