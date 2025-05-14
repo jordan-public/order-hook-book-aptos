@@ -47,15 +47,16 @@ module clohb::order_book {
     /// Insert an offer or hook into the offers map
     public fun insert_offer(account: &signer, entry: Entry) acquires OrderBook {
         let addr = signer::address_of(account);
+        let order_book_owner = @clohb; // The address of the module
         match (entry) {
             Entry::Offer { owner, amount, price } => {
                 assert!(owner == addr, 2);
-                let book = borrow_global_mut<OrderBook>(addr);
+                let book = borrow_global_mut<OrderBook>(order_book_owner);
                 book.offers.add(price, entry);
             },
             Entry::Hook { owner, price, reward, callback } => {
                 assert!(owner == addr, 2);
-                let book = borrow_global_mut<OrderBook>(addr);
+                let book = borrow_global_mut<OrderBook>(order_book_owner);
                 book.offers.add(price, entry);
             },
             _ => abort 3,
@@ -65,7 +66,8 @@ module clohb::order_book {
     /// Remove a bid or hook from the bids map (only by owner)
     public entry fun remove_bid(account: &signer, price: u64) acquires OrderBook {
         let addr = signer::address_of(account);
-        let book = borrow_global_mut<OrderBook>(addr);
+        let order_book_owner = @clohb; // The address of the module
+        let book = borrow_global_mut<OrderBook>(order_book_owner);
         let entry = book.bids.remove(&price);
         match (entry) {
             Entry::Bid { owner, amount, price } => {
@@ -81,7 +83,8 @@ module clohb::order_book {
     /// Remove an offer or hook from the offers map (only by owner)
     public entry fun remove_offer(account: &signer, price: u64) acquires OrderBook {
         let addr = signer::address_of(account);
-        let book = borrow_global_mut<OrderBook>(addr);
+        let order_book_owner = @clohb; // The address of the module
+        let book = borrow_global_mut<OrderBook>(order_book_owner);
         let entry = book.offers.remove(&price);
         match (entry) {
             Entry::Offer { owner, amount, price } => {
@@ -97,7 +100,8 @@ module clohb::order_book {
     /// Taker takes the best bid (highest price) or executes the hook if it's on top
     public entry fun take_best_bid(account: &signer) acquires OrderBook {
         let addr = signer::address_of(account);
-        let book = borrow_global_mut<OrderBook>(addr);
+        let order_book_owner = @clohb; // The address of the module
+        let book = borrow_global_mut<OrderBook>(order_book_owner);
         let (_, entry) = book.bids.pop_back(); // remove_max !!! verify this
         match (entry) {
             Entry::Bid { owner, amount, price } => {
@@ -115,7 +119,8 @@ module clohb::order_book {
     /// Taker takes the best offer (lowest price) or executes the hook if it's on top
     public entry fun take_best_offer(account: &signer) acquires OrderBook{
         let addr = signer::address_of(account);
-        let book = borrow_global_mut<OrderBook>(addr);
+        let order_book_owner = @clohb; // The address of the module
+        let book = borrow_global_mut<OrderBook>(order_book_owner);
         let (_, entry) = book.offers.pop_front(); // remove_min !!! verify this
         match (entry) {
             Entry::Offer { owner, amount, price } => {
