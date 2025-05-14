@@ -4,6 +4,7 @@ version = "1.0.0"
 authors = ["Jordan Stojanovski"]
 
 [addresses]
+clohb = "0x1"
 
 [dev-addresses]
 
