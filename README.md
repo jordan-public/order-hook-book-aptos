@@ -59,18 +59,18 @@ a Bid or an Offer containing an amount and limit price of a specific asset pair 
 remove such Bid or Offer from the Order Book and initiate a swap of assets
 with the Maker:
 
-![Order Book]()
+![Order Book](./docs/OrderBook.png)
 
 Traditionally, Takers can take any Bid or Offer, in any
 order ahead of a better priced one, as they may have a preference in choosing a conterparty, based on their credibility and credit worthiness.
 In DeFi this is not an issue, as all settlement is safely enforced by the protocol. This is exactly what we are leveraging on: ***Our Order Book is sorted by price and the order of execution must follow this sequence***. As Aptos transactions are inexpensive, matching a larger order with several small orders (Bids or Offers) is not an issue:
 
-![Ordered Execution]()
+![Ordered Execution](./docs/OrderedExecution.png)
 
 This allows us to insert Hooks between the Order Book entries and have
 them execute only when the desired price target is reached:
 
-![CHLOB]()
+![CHLOB](./docs/CLHOB.png)
 
 These Hooks follow specific rules:
 - The Order Book Bids and Offers are sorted by price, and execution
