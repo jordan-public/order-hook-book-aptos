@@ -1,9 +1,9 @@
 module clohb::order_book {
-    use std::debug;
     use std::signer;
-    use std::option::Option;
     use aptos_std::big_ordered_map;
-
+    #[test_only]
+    use std::debug;
+    
     /// Enum for order book entries
     enum Entry has copy, drop, store {
         Bid { owner: address, amount: u64, price : u64 },
@@ -34,6 +34,7 @@ module clohb::order_book {
         let book = borrow_global_mut<OrderBook>(order_book_owner);
         let entry = Entry::Hook { owner: addr, price, reward, callback };
         book.bids.add(price, entry);
+        // Handle payment for the hook caller reward
     }
 
     /// Insert a hook into the bids or offers map
@@ -44,6 +45,7 @@ module clohb::order_book {
         let book = borrow_global_mut<OrderBook>(order_book_owner);
         let entry = Entry::Hook { owner: addr, price, reward, callback };
         book.offers.add(price, entry);
+        // Handle payment for the hook caller reward
     }
 
     /// Insert a bid or hook into the bids map
@@ -69,11 +71,12 @@ module clohb::order_book {
         let book = borrow_global_mut<OrderBook>(order_book_owner);
         let entry = book.bids.remove(&price);
         match (entry) {
-            Entry::Bid { owner, amount, price } => {
+            Entry::Bid { owner, .. } => {
                 assert!(owner == addr, 2);
             },
-            Entry::Hook { owner, price, reward, callback } => {
+            Entry::Hook { owner, .. } => {
                 assert!(owner == addr, 2);
+                // Refund reward payment to the hook owner
             },
             _ => abort 3,
         }
@@ -86,57 +89,134 @@ module clohb::order_book {
         let book = borrow_global_mut<OrderBook>(order_book_owner);
         let entry = book.offers.remove(&price);
         match (entry) {
-            Entry::Offer { owner, amount, price } => {
+            Entry::Offer { owner, .. } => {
                 assert!(owner == addr, 2);
             },
-            Entry::Hook { owner, price, reward, callback } => {
+            Entry::Hook { owner, .. } => {
                 assert!(owner == addr, 2);
+                // Refund reward payment to the hook owner
             },
             _ => abort 3,
         }
     }
 
-    /// Taker takes the best bid (highest price) or executes the hook if it's on top
-    public entry fun take_best_bid(account: &signer) acquires OrderBook {
-        let addr = signer::address_of(account);
+    /// Buy, taking as much as possible and making a bid for the rest
+    public entry fun buy(account: &signer, amount: u64, limit_price: u64) acquires OrderBook {
+        if (amount == 0) {
+            return;
+        };
+        loop {
+            let (was_bid, took) = take_best_bid(account, limit_price, amount);
+            if (!was_bid) {
+                continue;
+            };
+            if (took == 0) {
+                break;
+            };
+            amount -= took;
+        };
+        if (amount > 0) {
+            // Make a offer for the remaining amount
+            insert_bid(account, limit_price, amount);
+        }
+    }
+
+    /// Sell, taking as much as possible and making an offer for the rest
+    public entry fun sell(account: &signer, amount: u64, limit_price: u64) acquires OrderBook {
+        if (amount == 0) {
+            return;
+        };
+        loop {
+            let (was_offer, took) = take_best_offer(account, limit_price, amount);
+            if (!was_offer) {
+                continue;
+            };
+            if (took == 0) {
+                break;
+            };
+            amount -= took;
+        };
+        if (amount > 0) {
+            // Make a offer for the remaining amount
+            insert_offer(account, limit_price, amount);
+        }
+    }
+
+    /// Taker takes (sells to) the best bid (highest price) or executes the hook if it's on top
+    /// Returns <bool, u64> - true if a bid or nothing was executed, false if a hook was taken
+    /// and the amount of the bid taken
+    fun take_best_bid(account: &signer, limit_price: u64, limit_amount: u64): (bool, u64) acquires OrderBook {
         let order_book_owner = @clohb; // The address of the module
         let book = borrow_global_mut<OrderBook>(order_book_owner);
-        let (_, entry) = book.bids.pop_back(); // remove_max !!! verify this
+        if (book.bids.is_empty()) {
+            return (true, 0); // No bid available
+        };
+        let (bid_price, _) = book.bids.borrow_back(); // Highest bid
+        if (bid_price < limit_price) {
+            return (true, 0); // No suitable bid available
+        };
+        let (_, entry) = book.bids.pop_back(); // Highest bid
         match (entry) {
-            Entry::Bid { owner, amount, price } => {
-                assert!(owner == addr, 2);
-                // transfer logic here
+            Entry::Bid { owner, amount: bid_size, price: bid_price } => {
+                if (bid_size > limit_amount) {
+                    // Put back the remaining amount
+                    book.bids.add(bid_price, Entry::Bid { owner, amount: bid_size - limit_amount, price: bid_price });
+                };
+                let executed_amount = if (bid_size > limit_amount) { limit_amount } else { bid_size };
+                // transfer logic here: swap executed_amount at bid_price
+                (true, executed_amount)
             },
             Entry::Hook { owner, price, reward, callback } => {
-                assert!(owner == addr, 2);
-                // call hook logic here
+                if (callback(price)) {
+                    // transfer logic here: swap executed_amount at price
+                } else {
+                    // Refund reward payment to the hook owner
+                };
+                (false, 0)
             },
             _ => abort 3,
         }
     }
 
     /// Taker takes the best offer (lowest price) or executes the hook if it's on top
-    public entry fun take_best_offer(account: &signer) acquires OrderBook{
-        let addr = signer::address_of(account);
+    /// Returns <bool, u64> - true if an offer or nothing was executed, false if a hook was taken
+    /// and the amount of the bid taken
+    fun take_best_offer(account: &signer, limit_price: u64, limit_amount: u64): (bool, u64) acquires OrderBook {
         let order_book_owner = @clohb; // The address of the module
         let book = borrow_global_mut<OrderBook>(order_book_owner);
-        let (_, entry) = book.offers.pop_front(); // remove_min !!! verify this
+        if (book.offers.is_empty()) {
+            return (true, 0); // No offer available
+        };
+        let (offer_price, _) = book.offers.borrow_front(); // Lowest offer
+        if (offer_price > limit_price) {
+            return (true, 0); // No suitable offer available
+        };
+        let (_, entry) = book.offers.pop_front(); // Lowest offer
         match (entry) {
-            Entry::Offer { owner, amount, price } => {
-                assert!(owner == addr, 2);
-                // transfer logic here
+            Entry::Offer { owner, amount: offer_size, price: offer_price } => {
+                if (offer_size > limit_amount) {
+                    // Put back the remaining amount
+                    book.offers.add(offer_price, Entry::Offer { owner, amount: offer_size - limit_amount, price: offer_price });
+                };
+                let executed_amount = if (offer_size > limit_amount) { limit_amount } else { offer_size };
+                // transfer logic here: swap executed_amount at offer_price
+                (true, executed_amount)
             },
             Entry::Hook { owner, price, reward, callback } => {
-                assert!(owner == addr, 2);
-                // call hook logic here
+                if (callback(price)) {
+                    // transfer logic here: swap executed_amount at price
+                } else {
+                    // Refund reward payment to the hook owner
+                };
+                (false, 0)
             },
             _ => abort 3,
         }
     }
 
     #[test(account = @0x1)]
-    public entry fun test_insert_remove_bid(account: signer) acquires OrderBook {
-        let addr = signer::address_of(&account);
+    public fun test_insert_remove_bid(account: signer) acquires OrderBook {
+        //let addr = signer::address_of(&account);
 
         init_module(&account);
         insert_bid(&account, 100, 10);
@@ -153,11 +233,11 @@ module clohb::order_book {
 
     #[test(account = @0x1)]
     public entry fun test_minimal_hook(account: signer) acquires OrderBook {
-        let addr = signer::address_of(&account);
+        // let addr = signer::address_of(&account);
 
         init_module(&account);
         insert_bid_hook(&account, my_hook, 100, 5);
-        take_best_bid(&account);
+        take_best_bid(&account, 100, 10);
     }
 
 }
