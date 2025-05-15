@@ -4,9 +4,10 @@ version = "1.0.0"
 authors = ["Jordan Stojanovski"]
 
 [addresses]
-clohb = "0x1"
+clohb = "_"
 
 [dev-addresses]
+clohb = "0x12345678"
 
 [dependencies.AptosFramework]
 git = "https://github.com/aptos-labs/aptos-framework.git"

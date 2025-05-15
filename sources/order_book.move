@@ -2,8 +2,15 @@ module clohb::order_book {
     use std::signer;
     use std::option;
     use aptos_std::big_ordered_map;
-    #[test_only]
+    use aptos_framework::fungible_asset::{Self, MintRef, TransferRef, BurnRef, Metadata, FungibleAsset};
+    use aptos_framework::object::{Self, Object};
+    use aptos_framework::primary_fungible_store;
+    use std::error;
+    use std::string::utf8;
     use std::debug;
+
+    const ASSET_A_SYMBOL: vector<u8> = b"A";
+    const ASSET_B_SYMBOL: vector<u8> = b"B";
     
     /// Enum for order book entries
     enum Entry has copy, drop, store {
@@ -18,6 +25,11 @@ module clohb::order_book {
         offers: big_ordered_map::BigOrderedMap<u64, Entry>, // key: price, value: Entry
     }
 
+    struct TokenAddresses has key {
+        address_a: address,
+        address_b: address,
+    }
+
     /// Publish the order book under the deployer's account
     fun init_module(account: &signer) { // Instead of init()
         assert!(!exists<OrderBook>(signer::address_of(account)), 1);
@@ -25,6 +37,41 @@ module clohb::order_book {
             bids: big_ordered_map::new_with_type_size_hints(8, 8, 64, 128),
             offers: big_ordered_map::new_with_type_size_hints(8, 8, 64, 128),
         });
+
+        // Fungible Assets
+        let constructor_a_ref = &object::create_named_object(account, ASSET_A_SYMBOL);
+        let constructor_b_ref = &object::create_named_object(account, ASSET_B_SYMBOL);
+
+        primary_fungible_store::create_primary_store_enabled_fungible_asset(
+            constructor_a_ref,
+            option::none(),
+            utf8(b"A Coin"), /* name */
+            utf8(ASSET_A_SYMBOL), /* symbol */
+            8, /* decimals */
+            utf8(b"http://example.com/favicon.ico"), /* icon */
+            utf8(b"http://example.com"), /* project */
+        );
+        primary_fungible_store::create_primary_store_enabled_fungible_asset(
+            constructor_b_ref,
+            option::none(),
+            utf8(b"B Coin"), /* name */
+            utf8(ASSET_B_SYMBOL), /* symbol */
+            8, /* decimals */
+            utf8(b"http://example.com/favicon.ico"), /* icon */
+            utf8(b"http://example.com"), /* project */
+        );
+
+        let mint_a_ref = fungible_asset::generate_mint_ref(constructor_a_ref);
+        let mint_b_ref = fungible_asset::generate_mint_ref(constructor_b_ref);
+        let address_a = object::address_from_constructor_ref(constructor_a_ref);
+        let address_b = object::address_from_constructor_ref(constructor_b_ref);
+        move_to(account, TokenAddresses {
+            address_a,
+            address_b,
+        });
+
+        primary_fungible_store::mint(&mint_a_ref, @clohb, 1000000000);
+        primary_fungible_store::mint(&mint_b_ref, @clohb, 1000000000);
     }
 
     /// Insert a hook into the bids or offers map
@@ -123,7 +170,7 @@ module clohb::order_book {
     }
 
     /// Sell, taking as much as possible and making an offer for the rest
-    public entry fun sell(account: &signer, amount: u64, limit_price: u64) acquires OrderBook {
+    public entry fun sell(account: &signer, amount: u64, limit_price: u64) acquires OrderBook, TokenAddresses {
         if (amount == 0) {
             return;
         };
@@ -146,7 +193,7 @@ module clohb::order_book {
     /// Taker takes (sells to) the best bid (highest price) or executes the hook if it's on top
     /// Returns <bool, u64> - true if a bid or nothing was executed, false if a hook was taken
     /// and the amount of the bid taken
-    fun take_best_bid(account: &signer, limit_amount: u64, limit_price: u64): (bool, u64) acquires OrderBook {
+    fun take_best_bid(account: &signer, limit_amount: u64, limit_price: u64): (bool, u64) acquires OrderBook, TokenAddresses {
         let order_book_owner = @clohb; // The address of the module
         let book = borrow_global_mut<OrderBook>(order_book_owner);
         if (book.bids.is_empty()) {
@@ -165,6 +212,8 @@ module clohb::order_book {
                 };
                 let executed_amount = if (bid_size > limit_amount) { limit_amount } else { bid_size };
                 // transfer logic here: swap executed_amount at bid_price
+                let ta = borrow_global_mut<TokenAddresses>(order_book_owner);
+                primary_fungible_store::transfer(account, object::address_to_object<0x1::object::ObjectCore>(ta.address_b), owner, executed_amount);
                 (true, executed_amount)
             },
             Entry::Hook { owner, price, reward, callback } => {
@@ -274,7 +323,7 @@ module clohb::order_book {
     }
 
     #[test(account = @0x1)]
-    public entry fun test_minimal_hook(account: signer) acquires OrderBook {
+    public entry fun test_minimal_hook(account: signer) acquires OrderBook, TokenAddresses {
         init_module(&account);
         insert_bid_hook(&account, my_hook, 100, 5);
         let (was_bid, amount) = take_best_bid(&account, 100, 10);
@@ -283,7 +332,7 @@ module clohb::order_book {
     }
 
     #[test(account = @0x1)]
-    public entry fun test_make_take_bid(account: signer) acquires OrderBook {
+    public entry fun test_make_take_bid(account: signer) acquires OrderBook, TokenAddresses {
         init_module(&account);
         insert_bid(&account, 100, 10);
         let (was_bid, amount) = take_best_bid(&account, 50, 10);
@@ -301,7 +350,7 @@ module clohb::order_book {
     }
 
     #[test(account = @0x1)]
-    public entry fun test_make_bid_sell(account: signer) acquires OrderBook {
+    public entry fun test_make_bid_sell(account: signer) acquires OrderBook, TokenAddresses {
         init_module(&account);
         insert_bid(&account, 100, 10); // To buy 100 at 10
         sell(&account, 150, 10); // Sell 150 at 10
@@ -319,7 +368,7 @@ module clohb::order_book {
     }
 
     #[test(account = @0x1)]
-    public entry fun test_make_bid_sell_worse(account: signer) acquires OrderBook {
+    public entry fun test_make_bid_sell_worse(account: signer) acquires OrderBook, TokenAddresses {
         init_module(&account);
         insert_bid(&account, 100, 10); // To buy 100 at 10
         sell(&account, 150, 9); // Sell 150 at 10
