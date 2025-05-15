@@ -106,7 +106,7 @@ module clohb::order_book {
             return;
         };
         loop {
-            let (was_bid, took) = take_best_bid(account, amount, limit_price);
+            let (was_bid, took) = take_best_offer(account, amount, limit_price);
             if (!was_bid) {
                 continue;
             };
@@ -117,7 +117,7 @@ module clohb::order_book {
         };
         if (amount > 0) {
             // Make a offer for the remaining amount
-            insert_bid(account, limit_price, amount);
+            insert_bid(account, amount, limit_price);
         }
     }
 
@@ -127,7 +127,7 @@ module clohb::order_book {
             return;
         };
         loop {
-            let (was_offer, took) = take_best_offer(account, amount, limit_price);
+            let (was_offer, took) = take_best_bid(account, amount, limit_price);
             if (!was_offer) {
                 continue;
             };
@@ -138,7 +138,7 @@ module clohb::order_book {
         };
         if (amount > 0) {
             // Make a offer for the remaining amount
-            insert_offer(account, limit_price, amount);
+            insert_offer(account, amount, limit_price);
         }
     }
 
@@ -226,6 +226,8 @@ module clohb::order_book {
     #[persistent]
     fun my_hook(price: u64): bool {
         // Hook logic here
+        let msg:vector<u8> = b"Hook executed at price:";
+        debug::print(&msg);
         debug::print(&price);
 
         true
@@ -233,8 +235,6 @@ module clohb::order_book {
 
     #[test(account = @0x1)]
     public entry fun test_minimal_hook(account: signer) acquires OrderBook {
-        // let addr = signer::address_of(&account);
-
         init_module(&account);
         insert_bid_hook(&account, my_hook, 100, 5);
         let (was_bid, amount) = take_best_bid(&account, 100, 10);
@@ -244,8 +244,6 @@ module clohb::order_book {
 
     #[test(account = @0x1)]
     public entry fun test_make_take_bid(account: signer) acquires OrderBook {
-        // let addr = signer::address_of(&account);
-
         init_module(&account);
         insert_bid(&account, 100, 10);
         let (was_bid, amount) = take_best_bid(&account, 50, 10);
@@ -255,13 +253,47 @@ module clohb::order_book {
 
     #[test(account = @0x1)]
     public entry fun test_make_take_offer(account: signer) acquires OrderBook {
-        // let addr = signer::address_of(&account);
-
         init_module(&account);
         insert_offer(&account, 100, 10);
         let (was_offer, amount) = take_best_offer(&account, 50, 10);
         assert!(was_offer, 2);
         assert!(amount == 50, 3);
+    }
+
+    #[test(account = @0x1)]
+    public entry fun test_make_bid_sell(account: signer) acquires OrderBook {
+        init_module(&account);
+        insert_bid(&account, 100, 10); // To buy 100 at 10
+        sell(&account, 150, 10); // Sell 150 at 10
+        let order_book_owner = @clohb; // The address of the module
+        let book = borrow_global_mut<OrderBook>(order_book_owner);
+        assert!(book.bids.is_empty(), 2);
+        let (_, entry) = book.offers.borrow_front(); // Lowest offer
+        match (entry) {
+            Entry::Offer { owner, amount: offer_size, price: offer_price } => {
+                assert!(*offer_size == 50, 3);
+                assert!(*offer_price == 10, 4);
+            },
+            _ => abort 5,
+        };
+    }
+
+    #[test(account = @0x1)]
+    public entry fun test_make_offer_buy(account: signer) acquires OrderBook {
+        init_module(&account);
+        insert_offer(&account, 100, 10); // To sell 100 at 10
+        buy(&account, 150, 10); // Buy 150 at 10
+        let order_book_owner = @clohb; // The address of the module
+        let book = borrow_global_mut<OrderBook>(order_book_owner);
+        assert!(book.offers.is_empty(), 2);
+        let (_, entry) = book.bids.borrow_back(); // Highest bid
+        match (entry) {
+            Entry::Bid { owner, amount: bid_size, price: bid_price } => {
+                assert!(*bid_size == 50, 3);
+                assert!(*bid_price == 10, 4);
+            },
+            _ => abort 5,
+        };
     }
 
 }
