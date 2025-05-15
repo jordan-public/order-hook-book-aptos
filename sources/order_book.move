@@ -1,5 +1,6 @@
 module clohb::order_book {
     use std::signer;
+    use std::option;
     use aptos_std::big_ordered_map;
     #[test_only]
     use std::debug;
@@ -214,6 +215,45 @@ module clohb::order_book {
         }
     }
 
+    // #[view]
+    // #[test_only]
+    // fun print_entry(entry: &Entry): bool {
+    //     match (entry) {
+    //         Entry::Bid { owner, amount, price } => {
+    //             debug::print(owner);
+    //             debug::print(amount);
+    //             debug::print(price);
+    //         },
+    //         Entry::Offer { owner, amount, price } => {
+    //             debug::print(owner);
+    //             debug::print(amount);
+    //             debug::print(price);
+    //         },
+    //         Entry::Hook { owner, price, reward, callback } => {
+    //             debug::print(owner);
+    //             debug::print(price);
+    //             debug::print(reward);
+    //         },
+    //     };
+    //     true
+    // }
+
+    // #[view]
+    // #[test_only]
+    // public fun print_order_book() : bool acquires OrderBook {
+    //     let order_book_owner = @clohb; // The address of the module
+    //     let book = borrow_global<OrderBook>(order_book_owner);
+    //     let keys = book.bids.keys();
+    //     let keys_len = keys.length();
+    //     for (i in 0..keys_len) {
+    //         let key = keys.borrow(i);
+    //         let e = book.bids.get(key);
+    //         let eref = option::extract(&mut e);
+    //         print_entry(&eref);
+    //     };
+    //     true
+    // }
+
     #[test(account = @0x1)]
     public fun test_insert_remove_bid(account: signer) acquires OrderBook {
         //let addr = signer::address_of(&account);
@@ -351,5 +391,17 @@ module clohb::order_book {
         assert!(book.bids.is_empty(), 2);
         
     }
+
+    // #[test(account = @0x1)]
+    // public entry fun test_print_order_book(account: signer) acquires OrderBook {
+    //     init_module(&account);
+    //     insert_offer(&account, 100, 10); // To sell 100 at 10
+    //     insert_offer_hook(&account, my_hook, 9, 5); // To buy 100 at 10
+    //     insert_offer(&account, 100, 8); // To sell 100 at 9
+    //     insert_bid(&account, 100, 7); // To buy 100 at 10
+    //     insert_bid_hook(&account, my_hook, 6, 5); // To buy 100 at 10
+    //     insert_bid(&account, 100, 4); // To buy 100 at 9
+    //     print_order_book();
+    // }
 
 }
