@@ -303,7 +303,7 @@ module clohb::order_book {
     //     true
     // }
 
-    #[test(account = @0x1)]
+    #[test(account = @clohb)]
     public fun test_insert_remove_bid(account: signer) acquires OrderBook {
         //let addr = signer::address_of(&account);
 
@@ -322,7 +322,7 @@ module clohb::order_book {
         true
     }
 
-    #[test(account = @0x1)]
+    #[test(account = @clohb)]
     public entry fun test_minimal_hook(account: signer) acquires OrderBook, TokenAddresses {
         init_module(&account);
         insert_bid_hook(&account, my_hook, 100, 5);
@@ -331,7 +331,7 @@ module clohb::order_book {
         assert!(amount == 0, 3);
     }
 
-    #[test(account = @0x1)]
+    #[test(account = @clohb)]
     public entry fun test_make_take_bid(account: signer) acquires OrderBook, TokenAddresses {
         init_module(&account);
         insert_bid(&account, 100, 10);
@@ -340,7 +340,7 @@ module clohb::order_book {
         assert!(amount == 50, 3);
     }
 
-    #[test(account = @0x1)]
+    #[test(account = @clohb)]
     public entry fun test_make_take_offer(account: signer) acquires OrderBook {
         init_module(&account);
         insert_offer(&account, 100, 10);
@@ -349,7 +349,7 @@ module clohb::order_book {
         assert!(amount == 50, 3);
     }
 
-    #[test(account = @0x1)]
+    #[test(account = @clohb)]
     public entry fun test_make_bid_sell(account: signer) acquires OrderBook, TokenAddresses {
         init_module(&account);
         insert_bid(&account, 100, 10); // To buy 100 at 10
@@ -367,7 +367,7 @@ module clohb::order_book {
         };
     }
 
-    #[test(account = @0x1)]
+    #[test(account = @clohb)]
     public entry fun test_make_bid_sell_worse(account: signer) acquires OrderBook, TokenAddresses {
         init_module(&account);
         insert_bid(&account, 100, 10); // To buy 100 at 10
@@ -385,7 +385,7 @@ module clohb::order_book {
         };
     }
 
-    #[test(account = @0x1)]
+    #[test(account = @clohb)]
     public entry fun test_make_offer_buy(account: signer) acquires OrderBook {
         init_module(&account);
         insert_offer(&account, 100, 10); // To sell 100 at 10
@@ -403,7 +403,7 @@ module clohb::order_book {
         };
     }
 
-    #[test(account = @0x1)]
+    #[test(account = @clohb)]
     public entry fun test_make_2offers_buy(account: signer) acquires OrderBook {
         init_module(&account);
         insert_offer(&account, 100, 10); // To sell 100 at 10
@@ -422,7 +422,7 @@ module clohb::order_book {
         };
     }
 
-    #[test(account = @0x1)]
+    #[test(account = @clohb)]
     public entry fun test_make_offer_buy_partial(account: signer) acquires OrderBook {
         init_module(&account);
         insert_offer(&account, 100, 10); // To sell 100 at 10
@@ -441,7 +441,7 @@ module clohb::order_book {
         
     }
 
-    // #[test(account = @0x1)]
+    // #[test(account = @clohb)]
     // public entry fun test_print_order_book(account: signer) acquires OrderBook {
     //     init_module(&account);
     //     insert_offer(&account, 100, 10); // To sell 100 at 10

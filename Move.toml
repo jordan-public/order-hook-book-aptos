@@ -4,10 +4,11 @@ version = "1.0.0"
 authors = ["Jordan Stojanovski"]
 
 [addresses]
-clohb = "_"
+# Switch between the 2 lines below (comment/uncomment) for test vs. Devnet deployment
+# clohb = "_"
+clohb = "0x1"
 
 [dev-addresses]
-clohb = "0x12345678"
 
 [dependencies.AptosFramework]
 git = "https://github.com/aptos-labs/aptos-framework.git"

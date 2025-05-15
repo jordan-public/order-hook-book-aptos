@@ -40,4 +40,24 @@ Code was successfully deployed to object address 0xc6982b896da0e9731d809041fa72e
 
 To run all tests locally:
 ```
+aptos move test --language-version 2.2
+```
+and get:
+```
+Running Move unit tests
+[ PASS    ] 0x1::order_book::test_insert_remove_bid
+[ PASS    ] 0x1::order_book::test_make_2offers_buy
+[ PASS    ] 0x1::order_book::test_make_bid_sell
+[ PASS    ] 0x1::order_book::test_make_bid_sell_worse
+[ PASS    ] 0x1::order_book::test_make_offer_buy
+[ PASS    ] 0x1::order_book::test_make_offer_buy_partial
+[ PASS    ] 0x1::order_book::test_make_take_bid
+[ PASS    ] 0x1::order_book::test_make_take_offer
+[debug] 0x486f6f6b2065786563757465642061742070726963653a
+[debug] 100
+[ PASS    ] 0x1::order_book::test_minimal_hook
+Test result: OK. Total tests: 9; passed: 9; failed: 0
+{
+  "Result": "Success"
+}
 ```
