@@ -279,6 +279,24 @@ module clohb::order_book {
     }
 
     #[test(account = @0x1)]
+    public entry fun test_make_bid_sell_worse(account: signer) acquires OrderBook {
+        init_module(&account);
+        insert_bid(&account, 100, 10); // To buy 100 at 10
+        sell(&account, 150, 9); // Sell 150 at 10
+        let order_book_owner = @clohb; // The address of the module
+        let book = borrow_global_mut<OrderBook>(order_book_owner);
+        assert!(book.bids.is_empty(), 2);
+        let (_, entry) = book.offers.borrow_front(); // Lowest offer
+        match (entry) {
+            Entry::Offer { owner, amount: offer_size, price: offer_price } => {
+                assert!(*offer_size == 50, 3);
+                assert!(*offer_price == 9, 4);
+            },
+            _ => abort 5,
+        };
+    }
+
+    #[test(account = @0x1)]
     public entry fun test_make_offer_buy(account: signer) acquires OrderBook {
         init_module(&account);
         insert_offer(&account, 100, 10); // To sell 100 at 10
