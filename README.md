@@ -89,16 +89,20 @@ Maker.
 
 ## Implementation
 
-Order Book in Aptos, but a very specific one:
+This protocol is written in Move and it runs on Aptos.
 
-The Order Book uses BigOrderedMap from https://github.com/aptos-labs/aptos-core/blob/main/aptos-move/framework/aptos-framework/sources/datastructures/big_ordered_map.move for storing the bids and offer tables.
+The Order Book uses [BigOrderedMap](https://github.com/aptos-labs/aptos-core/blob/main/aptos-move/framework/aptos-framework/sources/datastructures/big_ordered_map.move) from the Aptos standard libraries for storing the bids and offer tables. In this prototype there is a limitation of one entry (Bid or Offer) per price on each side of the Order Book. A negligible "dust" exchange rate has to be added to the price, to avoid collisions. This also mitigates the issue of ordering the entries by
+creation time. In the future, the key can be made to be a pair of <Price, Time>.
 
-There are 2 Big Ordered Maps, one for the bids and one for the offers.
+The front of the BigOrderMap has the lowest price and the back the highest.
 
-Each such map is ordered by price, where the best bid is the one with the highest price, while the best offer is the one with the lowest price.
-
-A Maker can insert a bid or an offer at any price (anywhere in the table). The Maker (the owner of the bid or offer) can remove any of their bids and/or offers.
+Any Maker can insert a bid or an offer at any price (anywhere in the table). The Maker (the owner of the bid or offer) can remove any of their bids and/or offers.
 
 This Order Book is very specific: It forces the takers to take the best, then the next best entry etc. in the order of their prices. The taker cannot just take any entry from the middle of the book.
 
-Each entry could be either Bid (Offer) or a Hook. The Bid and Offer taking are obvious. The Hook pays the taker to be taken. The Hook contains a closure (callback) that can be called to perform some operation, such as loan liquidation. The price ordering rule forces the Hook to be executed only when it is on top of the book (best Hook, like best Bid or Offer).
+Each entry could be either Bid (Offer) or a Hook, imlemented as Move Enum data structure. The Bid and Offer taking are obvious. The Hook pays the taker to be taken. The Hook contains a closure (callback) that can be called to perform some operation, such as loan liquidation. The price ordering rule forces the Hook to be executed only when it is on top of the book (best Hook, like best Bid or Offer).
+
+To accommodate for callbacks I had to use the switch ```--language-version 2.2```. Presently we cannot implement passing of Hooks (closures) via Move
+```entry``` functions, before this feature is implemented in Aptos Move.
+To mitigate this problem, we are defining the Hooks inside our code thus
+limiting the set of available Hooks.
