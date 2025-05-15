@@ -49,7 +49,7 @@ module clohb::order_book {
     }
 
     /// Insert a bid or hook into the bids map
-    public entry fun insert_bid(account: &signer, price: u64, amount: u64) acquires OrderBook {
+    public entry fun insert_bid(account: &signer, amount: u64, price: u64) acquires OrderBook {
         let addr = signer::address_of(account);
         let order_book_owner = @clohb; // The address of the module
         let book = borrow_global_mut<OrderBook>(order_book_owner);
@@ -57,7 +57,7 @@ module clohb::order_book {
     }
 
     /// Insert an offer or hook into the offers map
-    public entry fun insert_offer(account: &signer, price: u64, amount: u64) acquires OrderBook {
+    public entry fun insert_offer(account: &signer, amount: u64, price: u64) acquires OrderBook {
         let addr = signer::address_of(account);
         let order_book_owner = @clohb; // The address of the module
         let book = borrow_global_mut<OrderBook>(order_book_owner);
@@ -106,7 +106,7 @@ module clohb::order_book {
             return;
         };
         loop {
-            let (was_bid, took) = take_best_bid(account, limit_price, amount);
+            let (was_bid, took) = take_best_bid(account, amount, limit_price);
             if (!was_bid) {
                 continue;
             };
@@ -127,7 +127,7 @@ module clohb::order_book {
             return;
         };
         loop {
-            let (was_offer, took) = take_best_offer(account, limit_price, amount);
+            let (was_offer, took) = take_best_offer(account, amount, limit_price);
             if (!was_offer) {
                 continue;
             };
@@ -145,7 +145,7 @@ module clohb::order_book {
     /// Taker takes (sells to) the best bid (highest price) or executes the hook if it's on top
     /// Returns <bool, u64> - true if a bid or nothing was executed, false if a hook was taken
     /// and the amount of the bid taken
-    fun take_best_bid(account: &signer, limit_price: u64, limit_amount: u64): (bool, u64) acquires OrderBook {
+    fun take_best_bid(account: &signer, limit_amount: u64, limit_price: u64): (bool, u64) acquires OrderBook {
         let order_book_owner = @clohb; // The address of the module
         let book = borrow_global_mut<OrderBook>(order_book_owner);
         if (book.bids.is_empty()) {
@@ -181,7 +181,7 @@ module clohb::order_book {
     /// Taker takes the best offer (lowest price) or executes the hook if it's on top
     /// Returns <bool, u64> - true if an offer or nothing was executed, false if a hook was taken
     /// and the amount of the bid taken
-    fun take_best_offer(account: &signer, limit_price: u64, limit_amount: u64): (bool, u64) acquires OrderBook {
+    fun take_best_offer(account: &signer, limit_amount: u64, limit_price: u64): (bool, u64) acquires OrderBook {
         let order_book_owner = @clohb; // The address of the module
         let book = borrow_global_mut<OrderBook>(order_book_owner);
         if (book.offers.is_empty()) {
@@ -220,7 +220,7 @@ module clohb::order_book {
 
         init_module(&account);
         insert_bid(&account, 100, 10);
-        remove_bid(&account, 100);
+        remove_bid(&account, 10);
     }
 
     #[persistent]
@@ -237,7 +237,31 @@ module clohb::order_book {
 
         init_module(&account);
         insert_bid_hook(&account, my_hook, 100, 5);
-        take_best_bid(&account, 100, 10);
+        let (was_bid, amount) = take_best_bid(&account, 100, 10);
+        assert!(!was_bid, 2);
+        assert!(amount == 0, 3);
+    }
+
+    #[test(account = @0x1)]
+    public entry fun test_make_take_bid(account: signer) acquires OrderBook {
+        // let addr = signer::address_of(&account);
+
+        init_module(&account);
+        insert_bid(&account, 100, 10);
+        let (was_bid, amount) = take_best_bid(&account, 50, 10);
+        assert!(was_bid, 2);
+        assert!(amount == 50, 3);
+    }
+
+    #[test(account = @0x1)]
+    public entry fun test_make_take_offer(account: signer) acquires OrderBook {
+        // let addr = signer::address_of(&account);
+
+        init_module(&account);
+        insert_offer(&account, 100, 10);
+        let (was_offer, amount) = take_best_offer(&account, 50, 10);
+        assert!(was_offer, 2);
+        assert!(amount == 50, 3);
     }
 
 }
