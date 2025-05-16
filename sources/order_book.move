@@ -9,6 +9,8 @@ module clohb::order_book {
     use std::string::utf8;
     use std::debug;
 
+    const D8 : u64 = 100000000; // 1**8 as all prices are in 8 decimals
+
     const ASSET_A_SYMBOL: vector<u8> = b"A";
     const ASSET_B_SYMBOL: vector<u8> = b"B";
     
@@ -70,8 +72,8 @@ module clohb::order_book {
             address_b,
         });
 
-        primary_fungible_store::mint(&mint_a_ref, @clohb, 100000000000); // 1000 A
-        primary_fungible_store::mint(&mint_b_ref, @clohb, 100000000000); // 1000 B
+        primary_fungible_store::mint(&mint_a_ref, @clohb, 1000 * D8); // 1000 A
+        primary_fungible_store::mint(&mint_b_ref, @clohb, 1000 * D8); // 1000 B
     }
 
     /// Insert a hook into the bids or offers map
@@ -108,7 +110,7 @@ module clohb::order_book {
         book.bids.add(price, Entry::Bid { owner: addr, amount, price });
         // Lock funds for the bid
         let ta = borrow_global_mut<TokenAddresses>(order_book_owner);
-        let to_lock_amount_b = (amount * price) / 100000000;
+        let to_lock_amount_b = (amount * price) / D8;
     }
 
     /// Insert an offer into the offers map
@@ -132,7 +134,7 @@ module clohb::order_book {
         match (entry) {
             Entry::Bid { owner, amount, price } => {
                 assert!(owner == addr, 2);
-                let to_unlock_amount_b = (amount * price) / 100000000;
+                let to_unlock_amount_b = (amount * price) / D8;
             },
             Entry::Hook { owner, price, reward, callback } => {
                 assert!(owner == addr, 2);
@@ -226,12 +228,12 @@ module clohb::order_book {
                     // Put back the remaining amount
                     book.bids.add(bid_price, Entry::Bid { owner, amount: bid_size - limit_amount, price: bid_price });
                     // lock funds for the remaining amount
-                    let to_lock_amount_b = ((bid_size - limit_amount) * bid_price) / 100000000;
+                    let to_lock_amount_b = ((bid_size - limit_amount) * bid_price) / D8;
                 };
                 let executed_amount = if (bid_size > limit_amount) { limit_amount } else { bid_size };
                 // transfer logic here: swap executed_amount at bid_price
                 let to_pay_owner_amount_a = executed_amount; // From signer
-                let to_pay_caller_amount_b = (executed_amount * bid_price) / 100000000; // From funds locked in the Bid
+                let to_pay_caller_amount_b = (executed_amount * bid_price) / D8; // From funds locked in the Bid
                 primary_fungible_store::transfer(account, object::address_to_object<0x1::object::ObjectCore>(ta.address_b), owner, executed_amount);
                 (true, executed_amount)
             },
@@ -272,7 +274,7 @@ module clohb::order_book {
                 };
                 let executed_amount = if (offer_size > limit_amount) { limit_amount } else { offer_size };
                 // transfer logic here: swap executed_amount at offer_price
-                let to_pay_owner_amount_b = (executed_amount * offer_price) / 100000000; // From signer
+                let to_pay_owner_amount_b = (executed_amount * offer_price) / D8; // From signer
                 let to_pay_caller_amount_b = executed_amount; // From funds locked in the Bid
                 (true, executed_amount)
             },
@@ -332,8 +334,8 @@ module clohb::order_book {
         //let addr = signer::address_of(&account);
 
         init_module(&account);
-        insert_bid(&account, 100, 10 * 100000000);
-        remove_bid(&account, 10 * 100000000);
+        insert_bid(&account, 100, 10 * D8);
+        remove_bid(&account, 10 * D8);
     }
 
     #[persistent]
@@ -349,8 +351,8 @@ module clohb::order_book {
     #[test(account = @clohb)]
     public entry fun test_minimal_hook(account: signer) acquires OrderBook, TokenAddresses {
         init_module(&account);
-        insert_bid_hook(&account, my_hook, 100 * 100000000, 5);
-        let (was_bid, amount) = take_best_bid(&account, 100 * 100000000, 10);
+        insert_bid_hook(&account, my_hook, 100 * D8, 5);
+        let (was_bid, amount) = take_best_bid(&account, 100 * D8, 10);
         assert!(!was_bid, 2);
         assert!(amount == 0, 3);
     }
@@ -358,8 +360,8 @@ module clohb::order_book {
     #[test(account = @clohb)]
     public entry fun test_make_take_bid(account: signer) acquires OrderBook, TokenAddresses {
         init_module(&account);
-        insert_bid(&account, 100, 10 * 100000000);
-        let (was_bid, amount) = take_best_bid(&account, 50, 10 * 100000000);
+        insert_bid(&account, 100, 10 * D8);
+        let (was_bid, amount) = take_best_bid(&account, 50, 10 * D8);
         assert!(was_bid, 2);
         assert!(amount == 50, 3);
     }
@@ -367,8 +369,8 @@ module clohb::order_book {
     #[test(account = @clohb)]
     public entry fun test_make_take_offer(account: signer) acquires OrderBook, TokenAddresses {
         init_module(&account);
-        insert_offer(&account, 100, 10 * 100000000);
-        let (was_offer, amount) = take_best_offer(&account, 50, 10 * 100000000);
+        insert_offer(&account, 100, 10 * D8);
+        let (was_offer, amount) = take_best_offer(&account, 50, 10 * D8);
         assert!(was_offer, 2);
         assert!(amount == 50, 3);
     }
@@ -376,8 +378,8 @@ module clohb::order_book {
     #[test(account = @clohb)]
     public entry fun test_make_bid_sell(account: signer) acquires OrderBook, TokenAddresses {
         init_module(&account);
-        insert_bid(&account, 100, 10 * 100000000); // To buy 100 at 10
-        sell(&account, 150, 10 * 100000000); // Sell 150 at 10
+        insert_bid(&account, 100, 10 * D8); // To buy 100 at 10
+        sell(&account, 150, 10 * D8); // Sell 150 at 10
         let order_book_owner = @clohb; // The address of the module
         let book = borrow_global_mut<OrderBook>(order_book_owner);
         assert!(book.bids.is_empty(), 2);
@@ -385,7 +387,7 @@ module clohb::order_book {
         match (entry) {
             Entry::Offer { owner, amount: offer_size, price: offer_price } => {
                 assert!(*offer_size == 50, 3);
-                assert!(*offer_price == 10 * 100000000, 4);
+                assert!(*offer_price == 10 * D8, 4);
             },
             _ => abort 5,
         };
@@ -394,8 +396,8 @@ module clohb::order_book {
     #[test(account = @clohb)]
     public entry fun test_make_bid_sell_worse(account: signer) acquires OrderBook, TokenAddresses {
         init_module(&account);
-        insert_bid(&account, 100, 10 * 100000000); // To buy 100 at 10
-        sell(&account, 150, 9 * 100000000); // Sell 150 at 10
+        insert_bid(&account, 100, 10 * D8); // To buy 100 at 10
+        sell(&account, 150, 9 * D8); // Sell 150 at 10
         let order_book_owner = @clohb; // The address of the module
         let book = borrow_global_mut<OrderBook>(order_book_owner);
         assert!(book.bids.is_empty(), 2);
@@ -403,7 +405,7 @@ module clohb::order_book {
         match (entry) {
             Entry::Offer { owner, amount: offer_size, price: offer_price } => {
                 assert!(*offer_size == 50, 3);
-                assert!(*offer_price == 9 * 100000000, 4);
+                assert!(*offer_price == 9 * D8, 4);
             },
             _ => abort 5,
         };
@@ -412,8 +414,8 @@ module clohb::order_book {
     #[test(account = @clohb)]
     public entry fun test_make_offer_buy(account: signer) acquires OrderBook, TokenAddresses {
         init_module(&account);
-        insert_offer(&account, 100, 10 * 100000000); // To sell 100 at 10
-        buy(&account, 150, 10 * 100000000); // Buy 150 at 10
+        insert_offer(&account, 100, 10 * D8); // To sell 100 at 10
+        buy(&account, 150, 10 * D8); // Buy 150 at 10
         let order_book_owner = @clohb; // The address of the module
         let book = borrow_global_mut<OrderBook>(order_book_owner);
         assert!(book.offers.is_empty(), 2);
@@ -421,7 +423,7 @@ module clohb::order_book {
         match (entry) {
             Entry::Bid { owner, amount: bid_size, price: bid_price } => {
                 assert!(*bid_size == 50, 3);
-                assert!(*bid_price == 10 * 100000000, 4);
+                assert!(*bid_price == 10 * D8, 4);
             },
             _ => abort 5,
         };
@@ -430,9 +432,9 @@ module clohb::order_book {
     #[test(account = @clohb)]
     public entry fun test_make_2offers_buy(account: signer) acquires OrderBook, TokenAddresses {
         init_module(&account);
-        insert_offer(&account, 100, 10 * 100000000); // To sell 100 at 10
-        insert_offer(&account, 100, 9 * 100000000); // To sell 100 at 10
-        buy(&account, 250, 10 * 100000000); // Buy 150 at 10
+        insert_offer(&account, 100, 10 * D8); // To sell 100 at 10
+        insert_offer(&account, 100, 9 * D8); // To sell 100 at 10
+        buy(&account, 250, 10 * D8); // Buy 150 at 10
         let order_book_owner = @clohb; // The address of the module
         let book = borrow_global_mut<OrderBook>(order_book_owner);
         assert!(book.offers.is_empty(), 2);
@@ -440,7 +442,7 @@ module clohb::order_book {
         match (entry) {
             Entry::Bid { owner, amount: bid_size, price: bid_price } => {
                 assert!(*bid_size == 50, 3);
-                assert!(*bid_price == 10 * 100000000, 4);
+                assert!(*bid_price == 10 * D8, 4);
             },
             _ => abort 5,
         };
@@ -449,15 +451,15 @@ module clohb::order_book {
     #[test(account = @clohb)]
     public entry fun test_make_offer_buy_partial(account: signer) acquires OrderBook, TokenAddresses {
         init_module(&account);
-        insert_offer(&account, 100, 10 * 100000000); // To sell 100 at 10
-        buy(&account, 50, 11 * 100000000); // Buy 150 at 10
+        insert_offer(&account, 100, 10 * D8); // To sell 100 at 10
+        buy(&account, 50, 11 * D8); // Buy 150 at 10
         let order_book_owner = @clohb; // The address of the module
         let book = borrow_global_mut<OrderBook>(order_book_owner);
         let (_, entry) = book.offers.borrow_back(); // Highest bid
         match (entry) {
             Entry::Offer { owner, amount: offer_size, price: offer_price } => {
                 assert!(*offer_size == 50, 3);
-                assert!(*offer_price == 10 * 100000000, 4);
+                assert!(*offer_price == 10 * D8, 4);
             },
             _ => abort 5,
         };
