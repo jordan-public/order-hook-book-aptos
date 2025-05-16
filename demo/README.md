@@ -26,13 +26,13 @@ aptos move deploy-object --address-name clohb --language-version 2.2
 ```
 and get:
 ```
-Do you want to deploy this package at object address 0xc6982b896da0e9731d809041fa72ea100bb396b3abc3248b2536b4d3e58b18c6 [yes/no] >
+Do you want to deploy this package at object address 0x0c6b401e6a8588ec0362dd751a017d366f6978516b3eccdaa8018b969e5dd866 [yes/no] >
 y
-package size 6383 bytes
-Do you want to submit a transaction for a range of [776000 - 1164000] Octas at a gas unit price of 100 Octas? [yes/no] >
+package size 8738 bytes
+Do you want to submit a transaction for a range of [915500 - 1373200] Octas at a gas unit price of 100 Octas? [yes/no] >
 y
-Transaction submitted: https://explorer.aptoslabs.com/txn/0x5673e71ba11c9d204fd4700e42b462466e8f2bf6a4ab2dd7fcf10ed68f5897f2?network=devnet
-Code was successfully deployed to object address 0xc6982b896da0e9731d809041fa72ea100bb396b3abc3248b2536b4d3e58b18c6
+Transaction submitted: https://explorer.aptoslabs.com/txn/0xb590575dc7267acdaa3579baf279fc76d4c2aef91868befd3136e6d673007447?network=devnet
+Code was successfully deployed to object address 0x0c6b401e6a8588ec0362dd751a017d366f6978516b3eccdaa8018b969e5dd866
 {
   "Result": "Success"
 }
