@@ -15,7 +15,7 @@ module clohb::order_book {
     const ASSET_B_SYMBOL: vector<u8> = b"B";
     
     /// Enum for order book entries
-    enum Entry has copy, drop, store {
+    enum Entry has store {
         Bid { owner: address, amount: u64, price : u64 },
         Offer { owner: address, amount: u64, price : u64 },
         Hook { owner: address, price: u64, reward: u64, callback: |u64| bool has copy+drop+store },
