@@ -61,3 +61,28 @@ Test result: OK. Total tests: 9; passed: 9; failed: 0
   "Result": "Success"
 }
 ```
+
+To run a single test (see hook action in this case):
+```
+aptos move test --language-version 2.2 -f test_minimal_hook   
+```
+and get:
+```
+Running Move unit tests
+[debug] 0x486f6f6b2065786563757465642061742070726963653a
+[debug] 10000000000
+[ PASS    ] 0x1234::order_book::test_minimal_hook
+Test result: OK. Total tests: 1; passed: 1; failed: 0
+{
+  "Result": "Success"
+}
+```
+To see that the hook was triggered.
+To decode the message use:
+```
+echo 486f6f6b2065786563757465642061742070726963653a | xxd -r -p
+```
+and see:
+```
+Hook executed at price:
+```
