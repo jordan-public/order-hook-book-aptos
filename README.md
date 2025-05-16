@@ -39,7 +39,7 @@ loan for one house from a DeFi lending protocol. This is simply because the lend
 would allow for "naked" option writing is next to impossible. Yet, asking
 for collateral in Credit Spread or Debit Spread option strategies, defeats
 the purpose of those strategies. Short Call + Long Put is not even remotely the same as Short Call + Long Put + Underlying Collateral (required on-chain).
-- Leverage Perpetual Trading Protocols cannot achieve proper leverage
+- Leverage Issue: Perpetual Trading Protocols cannot achieve proper leverage
 without either lowering the leverage limit to the user or having the 
 liquidity providers take extra risks (see Infinity Pools).
 

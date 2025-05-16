@@ -6,7 +6,7 @@ The video is [here]() and on [YouTube]().
 
 ## Slides
 
-The slide presentation is [here]().
+The slide presentation is [here](https://www.canva.com/design/DAGnmE-4gcA/vKhvfWyxIsM0svlLDUmwcA/edit?utm_content=DAGnmE-4gcA&utm_campaign=designshare&utm_medium=link2&utm_source=sharebutton).
 
 ## Demo instructions
 
