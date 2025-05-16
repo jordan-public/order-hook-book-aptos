@@ -2,7 +2,7 @@
 
 ## Video
 
-The video is [here]() and on [YouTube]().
+The video is [here](./CLOHB.mp4) and on [YouTube](https://youtu.be/xh5mLW__yBA).
 
 ## Slides
 
