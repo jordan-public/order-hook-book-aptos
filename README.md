@@ -8,9 +8,9 @@ The demo video, slides and instructions are [here](./demo/README.md)
 
 Order-Hook Book is a novel protocol on Aptos, which implements an Order Book Decentralized Exchange, capable of atomic execution of registered callbacks (***Hooks***) when certain price levels are reached via trading. These hooks can be registered by anyone permissionlessly, so that anyone or any protocol can achieve immediate reactions to
 prices crossing specified levels. Such reactions can be used for:
-- delinquent loan liquidations in lending DeFi protocols, 
-- delinquent leveraged positions in leveraged trading protocols,
-- undercollateralized option position liquidations,
+- Delinquent loan liquidation in lending DeFi protocols
+- Delinquent leveraged position liquidation in leveraged trading protocols
+- Undercollateralized option position liquidation
 - ... and many other needs.
 
 ## Prior work
@@ -86,6 +86,14 @@ can Take it and execute it permissionlessly.
 - The Maker of the hook pays a fee.
 - The Taker of the hook and the Protocol share the fee received from the
 Maker. 
+
+## Economic Incentive
+
+To make sure the Order-Hook Book Protocol operates as intended, there
+are economic incentives for every participant:
+- Protocols/Callers pay rewards to use Hooks to improve Capital Efficiency and mitigate Delinquency Risk
+- Hook Takers receive reward for triggering the Hooks
+- Order-Hook Book Protocol collects part of the reward as fees
 
 ## Implementation
 
