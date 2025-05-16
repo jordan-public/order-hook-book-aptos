@@ -70,75 +70,90 @@ module clohb::order_book {
             address_b,
         });
 
-        primary_fungible_store::mint(&mint_a_ref, @clohb, 1000000000);
-        primary_fungible_store::mint(&mint_b_ref, @clohb, 1000000000);
+        primary_fungible_store::mint(&mint_a_ref, @clohb, 100000000000); // 1000 A
+        primary_fungible_store::mint(&mint_b_ref, @clohb, 100000000000); // 1000 B
     }
 
     /// Insert a hook into the bids or offers map
     // Should be "entry" function but it does not work in the current version - waiting for resolution!!!
-    public fun insert_bid_hook(account: &signer, callback: |u64| bool has copy+drop+store, price: u64, reward: u64) acquires OrderBook {
+    public fun insert_bid_hook(account: &signer, callback: |u64| bool has copy+drop+store, price: u64, reward: u64) acquires OrderBook, TokenAddresses {
         let addr = signer::address_of(account);
         let order_book_owner = @clohb; // The address of the module
         let book = borrow_global_mut<OrderBook>(order_book_owner);
         let entry = Entry::Hook { owner: addr, price, reward, callback };
         book.bids.add(price, entry);
-        // Handle payment for the hook caller reward
+        // Handle payment for the hook caller reward (in Base Currerncy)
+        let ta = borrow_global_mut<TokenAddresses>(order_book_owner);
+        primary_fungible_store::transfer(account, object::address_to_object<0x1::object::ObjectCore>(ta.address_b), order_book_owner, reward);
     }
 
-    /// Insert a hook into the bids or offers map
+    /// Insert a hook into the offers or offers map
     // Should be "entry" function but it does not work in the current version - waiting for resolution!!!
-    public fun insert_offer_hook(account: &signer, callback: |u64| bool has copy+drop+store, price: u64, reward: u64) acquires OrderBook {
+    public fun insert_offer_hook(account: &signer, callback: |u64| bool has copy+drop+store, price: u64, reward: u64) acquires OrderBook, TokenAddresses {
         let addr = signer::address_of(account);
         let order_book_owner = @clohb; // The address of the module
         let book = borrow_global_mut<OrderBook>(order_book_owner);
         let entry = Entry::Hook { owner: addr, price, reward, callback };
         book.offers.add(price, entry);
-        // Handle payment for the hook caller reward
+        // Handle payment for the hook caller reward (in Base Currerncy)
+        let ta = borrow_global_mut<TokenAddresses>(order_book_owner);
+        primary_fungible_store::transfer(account, object::address_to_object<0x1::object::ObjectCore>(ta.address_b), order_book_owner, reward);
     }
 
-    /// Insert a bid or hook into the bids map
-    public entry fun insert_bid(account: &signer, amount: u64, price: u64) acquires OrderBook {
+    /// Insert a bid into the bids map
+    public entry fun insert_bid(account: &signer, amount: u64, price: u64) acquires OrderBook, TokenAddresses {
         let addr = signer::address_of(account);
         let order_book_owner = @clohb; // The address of the module
         let book = borrow_global_mut<OrderBook>(order_book_owner);
         book.bids.add(price, Entry::Bid { owner: addr, amount, price });
+        // Lock funds for the bid
+        let ta = borrow_global_mut<TokenAddresses>(order_book_owner);
+        let to_lock_amount_b = (amount * price) / 100000000;
     }
 
-    /// Insert an offer or hook into the offers map
-    public entry fun insert_offer(account: &signer, amount: u64, price: u64) acquires OrderBook {
+    /// Insert an offer into the offers map
+    public entry fun insert_offer(account: &signer, amount: u64, price: u64) acquires OrderBook, TokenAddresses {
         let addr = signer::address_of(account);
         let order_book_owner = @clohb; // The address of the module
         let book = borrow_global_mut<OrderBook>(order_book_owner);
         book.offers.add(price, Entry::Offer { owner: addr, amount, price });
+        // Lock funds for the offer
+        let ta = borrow_global_mut<TokenAddresses>(order_book_owner);
+        let to_lock_amount_a = amount;
     }
 
     /// Remove a bid or hook from the bids map (only by owner)
-    public entry fun remove_bid(account: &signer, price: u64) acquires OrderBook {
+    public entry fun remove_bid(account: &signer, price: u64) acquires OrderBook, TokenAddresses {
         let addr = signer::address_of(account);
         let order_book_owner = @clohb; // The address of the module
         let book = borrow_global_mut<OrderBook>(order_book_owner);
         let entry = book.bids.remove(&price);
+        let ta = borrow_global_mut<TokenAddresses>(order_book_owner);
         match (entry) {
-            Entry::Bid { owner, .. } => {
+            Entry::Bid { owner, amount, price } => {
                 assert!(owner == addr, 2);
+                let to_unlock_amount_b = (amount * price) / 100000000;
             },
-            Entry::Hook { owner, .. } => {
+            Entry::Hook { owner, price, reward, callback } => {
                 assert!(owner == addr, 2);
                 // Refund reward payment to the hook owner
+                //!!!!primary_fungible_store::transfer(order_book_owner, object::address_to_object<0x1::object::ObjectCore>(ta.address_b), owner, reward);
             },
             _ => abort 3,
         }
     }
 
     /// Remove an offer or hook from the offers map (only by owner)
-    public entry fun remove_offer(account: &signer, price: u64) acquires OrderBook {
+    public entry fun remove_offer(account: &signer, price: u64) acquires OrderBook, TokenAddresses {
         let addr = signer::address_of(account);
         let order_book_owner = @clohb; // The address of the module
         let book = borrow_global_mut<OrderBook>(order_book_owner);
         let entry = book.offers.remove(&price);
+        let ta = borrow_global_mut<TokenAddresses>(order_book_owner);
         match (entry) {
-            Entry::Offer { owner, .. } => {
+            Entry::Offer { owner, amount, price } => {
                 assert!(owner == addr, 2);
+                let to_unlock_amount_a = amount;
             },
             Entry::Hook { owner, .. } => {
                 assert!(owner == addr, 2);
@@ -149,7 +164,7 @@ module clohb::order_book {
     }
 
     /// Buy, taking as much as possible and making a bid for the rest
-    public entry fun buy(account: &signer, amount: u64, limit_price: u64) acquires OrderBook {
+    public entry fun buy(account: &signer, amount: u64, limit_price: u64) acquires OrderBook, TokenAddresses {
         if (amount == 0) {
             return;
         };
@@ -204,15 +219,19 @@ module clohb::order_book {
             return (true, 0); // No suitable bid available
         };
         let (_, entry) = book.bids.pop_back(); // Highest bid
+        let ta = borrow_global_mut<TokenAddresses>(order_book_owner);
         match (entry) {
             Entry::Bid { owner, amount: bid_size, price: bid_price } => {
                 if (bid_size > limit_amount) {
                     // Put back the remaining amount
                     book.bids.add(bid_price, Entry::Bid { owner, amount: bid_size - limit_amount, price: bid_price });
+                    // lock funds for the remaining amount
+                    let to_lock_amount_b = ((bid_size - limit_amount) * bid_price) / 100000000;
                 };
                 let executed_amount = if (bid_size > limit_amount) { limit_amount } else { bid_size };
                 // transfer logic here: swap executed_amount at bid_price
-                let ta = borrow_global_mut<TokenAddresses>(order_book_owner);
+                let to_pay_owner_amount_a = executed_amount; // From signer
+                let to_pay_caller_amount_b = (executed_amount * bid_price) / 100000000; // From funds locked in the Bid
                 primary_fungible_store::transfer(account, object::address_to_object<0x1::object::ObjectCore>(ta.address_b), owner, executed_amount);
                 (true, executed_amount)
             },
@@ -231,7 +250,7 @@ module clohb::order_book {
     /// Taker takes the best offer (lowest price) or executes the hook if it's on top
     /// Returns <bool, u64> - true if an offer or nothing was executed, false if a hook was taken
     /// and the amount of the bid taken
-    fun take_best_offer(account: &signer, limit_amount: u64, limit_price: u64): (bool, u64) acquires OrderBook {
+    fun take_best_offer(account: &signer, limit_amount: u64, limit_price: u64): (bool, u64) acquires OrderBook, TokenAddresses {
         let order_book_owner = @clohb; // The address of the module
         let book = borrow_global_mut<OrderBook>(order_book_owner);
         if (book.offers.is_empty()) {
@@ -242,14 +261,19 @@ module clohb::order_book {
             return (true, 0); // No suitable offer available
         };
         let (_, entry) = book.offers.pop_front(); // Lowest offer
+        let ta = borrow_global_mut<TokenAddresses>(order_book_owner);
         match (entry) {
             Entry::Offer { owner, amount: offer_size, price: offer_price } => {
                 if (offer_size > limit_amount) {
                     // Put back the remaining amount
                     book.offers.add(offer_price, Entry::Offer { owner, amount: offer_size - limit_amount, price: offer_price });
+                    // lock funds for the remaining amount
+                    let to_lock_amount_a = offer_size - limit_amount;
                 };
                 let executed_amount = if (offer_size > limit_amount) { limit_amount } else { offer_size };
                 // transfer logic here: swap executed_amount at offer_price
+                let to_pay_owner_amount_b = (executed_amount * offer_price) / 100000000; // From signer
+                let to_pay_caller_amount_b = executed_amount; // From funds locked in the Bid
                 (true, executed_amount)
             },
             Entry::Hook { owner, price, reward, callback } => {
@@ -304,7 +328,7 @@ module clohb::order_book {
     // }
 
     #[test(account = @clohb)]
-    public fun test_insert_remove_bid(account: signer) acquires OrderBook {
+    public fun test_insert_remove_bid(account: signer) acquires OrderBook, TokenAddresses {
         //let addr = signer::address_of(&account);
 
         init_module(&account);
@@ -341,7 +365,7 @@ module clohb::order_book {
     }
 
     #[test(account = @clohb)]
-    public entry fun test_make_take_offer(account: signer) acquires OrderBook {
+    public entry fun test_make_take_offer(account: signer) acquires OrderBook, TokenAddresses {
         init_module(&account);
         insert_offer(&account, 100, 10);
         let (was_offer, amount) = take_best_offer(&account, 50, 10);
@@ -386,7 +410,7 @@ module clohb::order_book {
     }
 
     #[test(account = @clohb)]
-    public entry fun test_make_offer_buy(account: signer) acquires OrderBook {
+    public entry fun test_make_offer_buy(account: signer) acquires OrderBook, TokenAddresses {
         init_module(&account);
         insert_offer(&account, 100, 10); // To sell 100 at 10
         buy(&account, 150, 10); // Buy 150 at 10
@@ -404,7 +428,7 @@ module clohb::order_book {
     }
 
     #[test(account = @clohb)]
-    public entry fun test_make_2offers_buy(account: signer) acquires OrderBook {
+    public entry fun test_make_2offers_buy(account: signer) acquires OrderBook, TokenAddresses {
         init_module(&account);
         insert_offer(&account, 100, 10); // To sell 100 at 10
         insert_offer(&account, 100, 9); // To sell 100 at 10
@@ -423,7 +447,7 @@ module clohb::order_book {
     }
 
     #[test(account = @clohb)]
-    public entry fun test_make_offer_buy_partial(account: signer) acquires OrderBook {
+    public entry fun test_make_offer_buy_partial(account: signer) acquires OrderBook, TokenAddresses {
         init_module(&account);
         insert_offer(&account, 100, 10); // To sell 100 at 10
         buy(&account, 50, 11); // Buy 150 at 10
